@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>AI Mail Secretary "K-Model"</title>
+  
+  <!-- ====================================================================================== -->
+  <!-- 1. TRC Foundation Assets (React, Tailwind, Fonts) -->
+  <!-- ====================================================================================== -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  
+  <!-- ====================================================================================== -->
+  <!-- 2. Legacy Assets (Original CSS) -->
+  <!-- ====================================================================================== -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* TRC Overlay & Utility */
+    #root { position: fixed; top: 0; left: 0; width: 100%; height: 0; z-index: 9999; }
+    /* Legacy app wrapper (hidden by default until auth) */
+    #legacy-app { display: none; }
+
+    /* --- Original K-Model CSS (Preserved 100%) --- */
+    :root { --primary: #2563eb; --bg: #f3f4f6; --text: #1f2937; --error: #ef4444; --gray: #9ca3af; --success: #10b981; }
+    body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+    
+    .container { max-width: 600px; margin: 0 auto; position: relative; }
+    .hidden { display: none !important; }
+
+    /* Header & Logout */
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .header-title { margin:0; font-size:1.2rem; color: #374151; }
+    .btn-logout { background: transparent; border: 1px solid var(--gray); color: #4b5563; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; }
+
+    /* Dashboard Styles */
+    .dashboard-card { background: white; padding: 30px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    .unread-count { font-size: 3.5rem; font-weight: bold; color: var(--primary); display: block; line-height: 1; margin-bottom: 10px; }
+    .unread-label { color: #6b7280; font-size: 0.9rem; margin-bottom: 20px; display: block; }
+    
+    /* New Filter Card Style */
+    .filter-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #e5e7eb; }
+    .filter-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .filter-title { font-weight: bold; color: #374151; font-size: 1rem; display: flex; align-items: center; gap: 5px; }
+    .toggle-switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(24px); }
+    
+    .filter-content { transition: opacity 0.3s; }
+    .filter-disabled { opacity: 0.5; pointer-events: none; }
+    .filter-input { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; margin-top: 5px; box-sizing: border-box; background: #f9fafb; }
+    .filter-status { font-size: 0.8rem; color: #10b981; text-align: right; height: 20px; margin-top: 5px; font-weight: bold; }
+
+    .dash-btn-group { display: flex; flex-direction: column; gap: 15px; }
+    .btn-dash { padding: 16px; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; border: none; width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; }
+    .btn-dash-primary { background: var(--primary); color: white; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3); }
+    .btn-dash-primary:hover { transform: translateY(-2px); }
+    .btn-dash-secondary { background: white; color: var(--text); border: 1px solid #d1d5db; }
+    .btn-dash-secondary:hover { background: #f9fafb; }
+
+    /* Setup & Common */
+    .setup-box { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .input-group { margin-bottom: 20px; }
+    .input-label { display: block; font-weight: bold; margin-bottom: 8px; color: #4b5563; font-size: 0.9rem; }
+    .setup-input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+    .btn-start { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 6px; width: 100%; font-weight: bold; font-size: 1rem; cursor: pointer; }
+    .success-box { text-align: center; }
+    .btn-go-app { background: var(--success); color: white; border: none; padding: 16px 32px; border-radius: 8px; font-weight: bold; font-size: 1.1rem; cursor: pointer; width: 100%; }
+
+    /* Inbox & Card */
+    .tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+    .tab { background: #e5e7eb; padding: 8px 16px; border-radius: 20px; font-weight: 500; cursor: pointer; }
+    .tab.active { background: var(--primary); color: white; }
+    .card { background: white; padding: 16px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .card-header { display: flex; justify-content: space-between; font-weight: bold; color: #374151; margin-bottom: 8px; }
+    .subject { font-size: 1rem; font-weight: bold; margin-bottom: 10px; }
+    .ai-box { background: #eff6ff; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 0.95rem; line-height: 1.6; }
+    .ai-badge { display: inline-block; background: var(--primary); color: white; font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; vertical-align: middle; margin-right: 5px; }
+    .pii-alert { color: var(--error); font-size: 0.8rem; font-weight: bold; margin-top: 5px; }
+    .actions { display: flex; gap: 10px; margin-top: 15px; }
+    .btn-send { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    .btn-edit { flex: 1; background: #e5e7eb; color: var(--text); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    
+    .original-text {
+      display: none; 
+      margin-top: 5px; 
+      font-size: 0.8rem; 
+      background: #f9fafb; 
+      padding: 8px; 
+      border-radius: 4px;
+      word-break: break-all;
+      overflow-wrap: break-word;
+      white-space: pre-wrap; 
+    }
+    
+    .badge-priority { padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; margin-right: 5px; color: white; }
+    .p-high { background: var(--error); }
+    .p-mid { background: var(--warn); color: white; }
+    .p-low { background: var(--gray); }
+    .btn-generate { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border: none; padding: 10px; border-radius: 6px; width: 100%; cursor: pointer; font-weight: bold; margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 5px; }
+    .btn-generate:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* History & Other */
+    .history-item { border-bottom: 1px solid #e5e7eb; padding: 10px 0; font-size: 0.9rem; }
+    .history-meta { font-size: 0.8rem; color: #6b7280; display: flex; justify-content: space-between; }
+    .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:center; }
+    .modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; }
+    .btn-close { background: #e5e7eb; padding: 10px 20px; border-radius: 6px; border:none; margin-top:15px; cursor:pointer; font-weight:bold;}
+    .loader { text-align: center; color: #6b7280; margin-top: 50px; }
+    .btn-back { background: transparent; border: none; color: #4b5563; cursor: pointer; font-size: 0.9rem; text-decoration: underline; margin-right: 10px; }
+
+    /* Editor Modal Styles */
+    #editor-modal .modal-content { max-width: 500px; text-align: left; }
+    #editor-textarea { width: 100%; height: 200px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: inherit; font-size: 1rem; box-sizing: border-box; resize: vertical; margin-bottom: 15px; }
+    .editor-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .btn-editor-save { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    .btn-editor-cancel { background: #e5e7eb; color: var(--text); border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+
+    /* TRC Settings Button Injection */
+    .trc-settings-trigger {
+      position: absolute; top: 0; right: 0;
+      background: #f3f4f6; color: #9ca3af;
+      width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: 0.2s;
+    }
+    .trc-settings-trigger:hover { color: #2563eb; background: #e5e7eb; }
+  </style>
+</head>
+<body>
+
+<!-- ====================================================================================== -->
+<!-- 3. React Root (Auth, Modals, System Overlay) -->
+<!-- ====================================================================================== -->
+<div id="root"></div>
+
+<!-- ====================================================================================== -->
+<!-- 4. Legacy App Container (Original HTML) -->
+<!-- ====================================================================================== -->
+<div id="legacy-app">
+  <script> const INITIAL_SETUP_COMPLETED = <?= isSetupCompleted ?>; </script>
+
+  <!-- Notice Modal -->
+  <div id="modal" class="modal-overlay">
+    <div class="modal-content">
+      <h3 id="modal-title" style="margin-top:0">Notice</h3>
+      <p id="modal-msg"></p>
+      <button class="btn-close" onclick="closeModal()">閉じる</button>
+    </div>
+  </div>
+
+  <!-- Editor Modal -->
+  <div id="editor-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h3 style="margin-top:0">返信内容の編集</h3>
+      <textarea id="editor-textarea"></textarea>
+      <div class="editor-actions">
+        <button class="btn-editor-cancel" onclick="closeEditor()">キャンセル</button>
+        <button class="btn-editor-save" onclick="saveEdit()">完了</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    
+    <!-- ★ TRC設定ボタン -->
+    <div class="trc-settings-trigger" onclick="window.TRC.openSettings()" title="システム設定">
+      <span class="material-icons-round">settings</span>
+    </div>
+
+    <!-- Setup -->
+    <div id="setup-container" class="<?= isSetupCompleted ? 'hidden' : '' ?>">
+      <h1 style="color:#374151">AI秘書 "K-Model" セットアップ</h1>
+      <div class="setup-box">
+        <div id="setup-form">
+          <p style="font-size:0.9rem; color:#6b7280; margin-bottom:20px;">
+            利用するGmailアドレスを入力してください。<br>
+            <span style="font-size:0.8rem; color:#2563eb;">※APIキーは認証済みのものを自動使用します</span>
+          </p>
+          <div class="input-group">
+            <label class="input-label">📩 Gmailアドレス</label>
+            <input type="email" id="inputEmail" class="setup-input" value="<?= currentUserEmail ?>" placeholder="example@gmail.com">
+          </div>
+          <div class="input-group" style="display:none;">
+            <label class="input-label">🔑 Gemini APIキー</label>
+            <input type="password" id="apiKey" class="setup-input" placeholder="AIzaSy...">
+          </div>
+          <button id="btn-save" class="btn-start" onclick="startSetup()">利用を開始する</button>
+          <p id="status-msg" style="margin-top:15px; text-align:center; color:var(--primary); font-size:0.9rem;"></p>
+        </div>
+        <div id="setup-success" class="success-box hidden">
+          <span class="success-icon">🎉</span>
+          <h2 style="margin-top:0; color:#10b981;">セットアップ完了！</h2>
+          <button class="btn-go-app" onclick="goToApp()">🚀 アプリへ移動する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- App -->
+    <div id="app-container" class="<?= isSetupCompleted ? '' : 'hidden' ?>">
+      <div class="header-bar">
+        <div style="display:flex; align-items:center;">
+          <button id="btn-back-dash" class="btn-back hidden" onclick="showDashboard()">◀ TOP</button>
+          <h2 class="header-title">AI Mail Secretary</h2>
+        </div>
+        <button class="btn-logout" onclick="logout()">🚪 ログアウト</button>
+      </div>
+
+      <!-- Dashboard -->
+      <div id="view-dashboard">
+        
+        <!-- ★ NEW: 重点解析フィルター (Top/Center Placement) -->
+        <div class="filter-card">
+          <div class="filter-header">
+            <div class="filter-title">
+              <span class="material-icons-round text-blue-500">filter_list_alt</span>
+              重点解析モード
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="filter-toggle" onchange="toggleFilter(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div id="filter-body" class="filter-content filter-disabled">
+            <p style="font-size:0.8rem; color:#6b7280; margin:0 0 5px 0;">
+              解析したいアドレスを入力 (カンマ区切り):
+            </p>
+            <textarea id="filter-input" class="filter-input" rows="2" placeholder="biz@yahoo.co.jp, ..." onblur="saveFilterConfig()"></textarea>
+            <div id="filter-status" class="filter-status"></div>
+          </div>
+        </div>
+        <!-- End Filter Card -->
+
+        <div class="dashboard-card">
+          <span class="unread-count" id="unread-counter">-</span>
+          <span class="unread-label">現在の未読メール</span>
+          <div class="dash-btn-group">
+            <button class="btn-dash btn-dash-primary" onclick="startInbox(false)">
+              <span>✨ 未読メールをAI解析する</span>
+            </button>
+            <button class="btn-dash btn-dash-secondary" onclick="startInbox(true)">
+              <span>🔄 再スキャン (既読含む)</span>
+            </button>
+            <button class="btn-dash btn-dash-secondary" onclick="startHistory()">
+              <span>📜 送信履歴を確認する</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inbox -->
+      <div id="view-inbox" class="hidden">
+        <div class="tabs hidden" id="inbox-tabs">
+          <div class="tab active">📨 メール一覧</div>
+        </div>
+        <div id="card-container">
+          <div class="loader"><p>🔄 解析中...</p></div>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div id="view-history" class="hidden">
+        <div class="tabs">
+          <div class="tab active">📜 送信履歴</div>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">送信済み履歴 (直近20件)</h3>
+          <div id="history-container">読み込み中...</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================================================== -->
+<!-- 5. React / TRC Logic -->
+<!-- ====================================================================================== -->
+<script type="text/babel">
+  const { useState, useEffect } = React;
+
+  // --- GAS Bridge Helper ---
+  const runGas = (func, ...args) => {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        [func](...args);
+    });
+  };
+
+  // --- Components ---
+  const Spinner = () => <div className="flex justify-center p-4"><span className="material-icons-round animate-spin text-blue-500 text-3xl">autorenew</span></div>;
+  const ProgressBar = () => <div className="w-full h-1.5 bg-gray-100 overflow-hidden"><div className="h-full bg-gradient-to-r from-blue-300 to-indigo-400 animate-pulse w-full origin-left transform scale-x-75"></div></div>;
+
+  const Toast = ({ msg, type, onClose }) => {
+    useEffect(() => { const t = setTimeout(onClose, 4000); return () => clearTimeout(t); }, [onClose]);
+    const colors = type === 'error' ? 'bg-red-500' : 'bg-emerald-500';
+    return (
+      <div className={`fixed bottom-10 left-1/2 transform -translate-x-1/2 ${colors} text-white px-6 py-3 rounded-full shadow-xl z-[10000] fade-in flex items-center gap-2 w-max max-w-[90%]`}>
+        <span className="material-icons-round">{type==='error'?'error_outline':'check_circle'}</span>
+        <span className="font-bold text-sm truncate">{msg}</span>
+      </div>
+    );
+  };
+
+  const QuotaHelpModal = ({ onClose, resetTime }) => (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[11000] modal-enter p-4">
+      <div className="bg-white max-w-sm w-full rounded-3xl p-6 shadow-2xl relative overflow-hidden text-left">
+        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <span className="material-icons-round text-orange-500">sentiment_very_dissatisfied</span>
+          API制限について
+        </h3>
+        <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl mb-6">
+          <p className="text-sm text-gray-700 font-medium leading-relaxed">
+            APIの利用制限に達したようです。<br/>
+            回復目安: <strong className="text-orange-600">{resetTime || "明日"}ごろ</strong>
+          </p>
+        </div>
+        <button onClick={onClose} className="w-full bg-gray-100 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-200 text-sm">閉じる</button>
+      </div>
+    </div>
+  );
+
+  const SettingsModal = ({ onClose, onLogout, onClearCache }) => {
+    const handleHardLogout = () => {
+      if(confirm("ログアウトすると、APIキーの情報も含めて全てのデータが消えます。よろしいですか？")) onLogout(true);
+    };
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] modal-enter p-4">
+        <div className="bg-white w-full max-w-xs rounded-2xl p-5 shadow-xl relative text-left">
+          <button onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"><span className="material-icons-round">close</span></button>
+          <h3 className="font-bold text-gray-700 mb-4 text-center">設定メニュー</h3>
+          <div className="space-y-3">
+            <button onClick={onClearCache} className="w-full py-3 bg-gray-50 text-gray-600 rounded-xl font-bold hover:bg-gray-100 flex items-center justify-center gap-2 text-sm"><span className="material-icons-round">cleaning_services</span> キャッシュ削除</button>
+            <button onClick={handleHardLogout} className="w-full py-3 bg-red-50 text-red-500 rounded-xl font-bold hover:bg-red-100 flex items-center justify-center gap-2 text-sm"><span className="material-icons-round">logout</span> ログアウト</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const AuthScreen = ({ onLogin, onSaveKey }) => {
+    const [key, setKey] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    const doLogin = async () => {
+      if(!key.trim()) return setError("キーを入力してください");
+      setLoading(true); setError("");
+      try {
+        const check = await runGas('testConnection', key.trim()); 
+        if(!check.success) {
+             let msg = check.error;
+             if (msg === "KEY_FORMAT_INVALID" || msg === "INVALID_KEY_DETECTED") {
+                 msg = "正しいAPIキーではないようです。半角スペースなどが混ざらないように、正確にご入力ください";
+             }
+             throw new Error(msg);
+        }
+        await runGas('saveApiKey', key.trim());
+        onSaveKey(key.trim()); 
+        onLogin();
+      } catch(e) { setError(e.message); } 
+      finally { setLoading(false); }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-6 z-[10000]">
+        <div className="bg-white max-w-sm w-full rounded-3xl p-8 shadow-xl text-center fade-in border border-white/50 relative overflow-hidden">
+          {loading && <div className="absolute top-0 left-0 w-full"><ProgressBar /></div>}
+          <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6 text-blue-500 shadow-inner">
+            <span className="material-icons-round text-3xl">vpn_key</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Secure Login</h2>
+          <p className="text-xs text-gray-500 mb-8">AI Mail Secretary "K-Model" (v4.3)</p>
+          <input type="password" value={key} onChange={e=>setKey(e.target.value)} placeholder="Gemini API Key..." className="w-full bg-gray-50 border border-gray-200 text-center font-mono text-sm py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 mb-4" />
+          {error && <div className="mb-4 text-red-500 text-xs font-bold bg-red-50 p-2 rounded">{error}</div>}
+          <button onClick={doLogin} disabled={loading} className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg disabled:opacity-50 hover:shadow-xl transition">
+            {loading ? "認証中..." : "はじめる"}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // --- Main App Controller ---
+  function App() {
+    const [isInit, setIsInit] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [modal, setModal] = useState(null); 
+    const [toast, setToast] = useState(null);
+    const [quotaTime, setQuotaTime] = useState("");
+    const [cachedKey, setCachedKey] = useState("");
+
+    useEffect(() => {
+      runGas('loadUserData').then(res => {
+        if(res.success && res.hasApiKey) {
+           setIsAuthenticated(true);
+           showLegacyApp();
+        }
+        setIsInit(true);
+      });
+    }, []);
+
+    const showLegacyApp = () => {
+      document.getElementById('root').style.height = '0'; 
+      document.getElementById('legacy-app').style.display = 'block'; 
+      if(window.legacyInitDone && typeof window.initDashboard === 'function') {
+         if(window.INITIAL_SETUP_COMPLETED) window.initDashboard();
+      }
+    };
+
+    const handleLoginSuccess = () => {
+      setIsAuthenticated(true);
+      showLegacyApp();
+      setToast({ msg: "認証成功！ようこそ", type: 'success' });
+    };
+    
+    useEffect(() => {
+      if(cachedKey) {
+        const input = document.getElementById('apiKey');
+        if(input) input.value = cachedKey;
+      }
+    }, [cachedKey, isAuthenticated]);
+
+    const handleLogout = async (hard) => {
+      await runGas('deleteUserData', hard);
+      location.reload();
+    };
+
+    const handleClearCache = async () => {
+      await runGas('clearUserCache');
+      setModal(null);
+      setToast({ msg: "キャッシュを削除しました", type: 'success' });
+    };
+
+    // --- Bridge for Legacy JS ---
+    useEffect(() => {
+      window.TRC = {
+        openSettings: () => setModal('settings'),
+        logout: () => setModal('settings'), 
+        runGas: async (func, ...args) => {
+          try {
+            return await runGas(func, ...args);
+          } catch(e) {
+            const msg = e.toString();
+            if(msg.includes("QUOTA") || msg.includes("明日") || msg.includes("利用制限")) {
+               setQuotaTime("明日"); 
+               setModal('quota');
+               throw e; 
+            }
+            if(!msg.includes("User cancelled")) setToast({ msg: "エラー: " + msg.replace('Error:', '').trim(), type: 'error' });
+            throw e;
+          }
+        }
+      };
+    }, []);
+
+    if(!isInit) return <div className="fixed inset-0 flex items-center justify-center bg-white z-[9999]"><Spinner /></div>;
+
+    return (
+      <>
+        {!isAuthenticated && <AuthScreen onLogin={handleLoginSuccess} onSaveKey={setCachedKey} />}
+        
+        {modal === 'settings' && <SettingsModal onClose={()=>setModal(null)} onLogout={handleLogout} onClearCache={handleClearCache} />}
+        {modal === 'quota' && <QuotaHelpModal onClose={()=>setModal(null)} resetTime={quotaTime} />}
+        {toast && <Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)} />}
+      </>
+    );
+  }
+
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<App />);
+</script>
+
+<!-- ====================================================================================== -->
+<!-- 6. Legacy Logic (Adapted for TRC Bridge) -->
+<!-- ====================================================================================== -->
+<script>
+  let currentEditId = null;
+  window.legacyInitDone = false;
+
+  function showModal(title, msg) { document.getElementById('modal-title').innerText = title; document.getElementById('modal-msg').innerText = msg; document.getElementById('modal').style.display = 'flex'; }
+  function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+  function openEditor(id) {
+    currentEditId = id;
+    const currentText = document.getElementById('reply-' + id).value;
+    document.getElementById('editor-textarea').value = currentText;
+    document.getElementById('editor-modal').style.display = 'flex';
+    document.getElementById('editor-textarea').focus();
+  }
+
+  function closeEditor() {
+    document.getElementById('editor-modal').style.display = 'none';
+    currentEditId = null;
+  }
+
+  function saveEdit() {
+    if (currentEditId) {
+      const newText = document.getElementById('editor-textarea').value;
+      document.getElementById('reply-' + currentEditId).value = newText;
+      closeEditor();
+    }
+  }
+
+  window.onload = function() {
+    window.legacyInitDone = true;
+    if (typeof INITIAL_SETUP_COMPLETED !== 'undefined' && INITIAL_SETUP_COMPLETED) {
+      setTimeout(() => { if(window.TRC) initDashboard(); }, 500);
+    }
+  };
+
+  // --- TRC Bridge Replacement ---
+  
+  function initDashboard() {
+    // 1. 未読数取得 (getUnreadCount は現在フィルタの設定を見て動的に数える)
+    window.TRC.runGas('getUnreadCount').then(count => {
+      document.getElementById('unread-counter').innerText = count;
+    });
+    // 2. フィルタ設定の読み込み
+    window.TRC.runGas('loadUserData').then(res => {
+      if(res.success && res.data) {
+        const toggle = document.getElementById('filter-toggle');
+        const input = document.getElementById('filter-input');
+        const body = document.getElementById('filter-body');
+        
+        // 設定反映
+        if (res.data.isFilterEnabled) {
+          toggle.checked = true;
+          body.classList.remove('filter-disabled');
+        } else {
+          toggle.checked = false;
+          body.classList.add('filter-disabled');
+        }
+        
+        if (res.data.targetEmails) {
+          input.value = res.data.targetEmails;
+        }
+      }
+    });
+  }
+
+  // --- Filter Logic (Dashboard) ---
+  function toggleFilter(checked) {
+    const body = document.getElementById('filter-body');
+    if(checked) body.classList.remove('filter-disabled');
+    else body.classList.add('filter-disabled');
+    
+    // スイッチの状態を即座に保存
+    saveFilterConfig();
+  }
+
+  // ★修正(v26.5): アトミック更新処理
+  function saveFilterConfig() {
+    const isEnabled = document.getElementById('filter-toggle').checked;
+    const emails = document.getElementById('filter-input').value;
+    const status = document.getElementById('filter-status');
+    const counter = document.getElementById('unread-counter');
+    
+    status.innerText = "保存中...";
+    counter.innerText = "..."; // 計算中表示
+    
+    // 新設した「保存＆カウント」関数を呼び出す
+    window.TRC.runGas('saveSettingsAndGetCount', JSON.stringify({
+      targetEmails: emails,
+      isFilterEnabled: isEnabled
+    })).then((res) => {
+      if (res.success) {
+        status.innerText = "保存しました ✅";
+        counter.innerText = res.count; // ★戻ってきた正確なカウントで即更新
+        setTimeout(() => status.innerText = "", 2000);
+      } else {
+        throw new Error(res.error);
+      }
+    }).catch((e) => {
+      status.innerText = "エラー ❌";
+      console.error(e);
+      // エラー時は安全のため再読み込み
+      initDashboard();
+    });
+  }
+
+  function showDashboard() {
+    hideAllViews();
+    document.getElementById('view-dashboard').classList.remove('hidden');
+    document.getElementById('btn-back-dash').classList.add('hidden');
+    initDashboard();
+  }
+
+  function startInbox(includeRead) {
+    hideAllViews();
+    document.getElementById('view-inbox').classList.remove('hidden');
+    document.getElementById('btn-back-dash').classList.remove('hidden');
+    document.getElementById('inbox-tabs').classList.add('hidden');
+    loadInbox(includeRead);
+  }
+
+  function startHistory() {
+    hideAllViews();
+    document.getElementById('view-history').classList.remove('hidden');
+    document.getElementById('btn-back-dash').classList.remove('hidden');
+    loadHistory();
+  }
+
+  function hideAllViews() {
+    document.getElementById('view-dashboard').classList.add('hidden');
+    document.getElementById('view-inbox').classList.add('hidden');
+    document.getElementById('view-history').classList.add('hidden');
+  }
+
+  function startSetup() {
+    const email = document.getElementById('inputEmail').value.trim();
+    let key = document.getElementById('apiKey').value.trim(); 
+    const btn = document.getElementById('btn-save');
+    const status = document.getElementById('status-msg');
+    
+    if (!email) return showModal("入力エラー", "Gmailアドレスを入力してください。");
+    if(!key) key = "AUTH_VIA_TRC"; 
+
+    btn.disabled = true; btn.innerText = "認証中...";
+    status.innerText = "⏳ 環境構築中...";
+    
+    window.TRC.runGas('saveInitialSettings', key, email)
+      .then(() => {
+          document.getElementById('setup-form').classList.add('hidden');
+          document.getElementById('setup-success').classList.remove('hidden');
+      })
+      .catch((e) => {
+          btn.disabled = false; btn.innerText = "再試行"; status.innerText = "";
+          showModal("セットアップ失敗", e.message.replace('Error: ', ''));
+      });
+  }
+
+  function goToApp() {
+    document.getElementById('setup-container').classList.add('hidden');
+    document.getElementById('app-container').classList.remove('hidden');
+    initDashboard();
+  }
+
+  function logout() {
+    window.TRC.logout();
+  }
+
+  function loadInbox(includeRead) {
+    const c = document.getElementById('card-container');
+    c.innerHTML = `<div class="loader"><p>🔄 メールを分析中... しばらくお待ちください</p></div>`;
+    
+    window.TRC.runGas('syncAndProcess', includeRead)
+      .then(renderCards)
+      .catch(e => {
+          document.getElementById('inbox-tabs').classList.remove('hidden');
+          c.innerHTML = `<p style="color:red; text-align:center;">読み込みエラー<br><span style="font-size:0.8rem">${e.message}</span></p>`; 
+      });
+  }
+
+  function renderCards(results) {
+    document.getElementById('inbox-tabs').classList.remove('hidden');
+    const c = document.getElementById('card-container');
+    c.innerHTML = '';
+    if (!results || results.length === 0) {
+      c.innerHTML = '<div style="text-align:center; margin-top:50px;"><p>🎉 解析対象メールはありません</p></div>';
+      return;
+    }
+    results.forEach(r => {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.id = 'card-' + r.id;
+      
+      let pClass = 'p-low';
+      if(r.priority.includes('高')) pClass = 'p-high';
+      if(r.priority.includes('中')) pClass = 'p-mid';
+      
+      const piiAlert = r.isPiiMasked ? '<div class="pii-alert">🛡️ 個人情報を保護しました</div>' : '';
+      div.innerHTML = `
+        <div class="card-header"><span>${escapeHtml(r.from)}</span><span>${r.date}</span></div>
+        <div class="subject">
+          <span class="badge-priority ${pClass}">${r.priority}</span>
+          ${escapeHtml(r.subject)}
+        </div>
+        <div class="ai-box">
+          <span class="ai-badge">${r.category}</span>
+          ${escapeHtml(r.summary)}
+          ${piiAlert}
+          <button id="btn-gen-${r.id}" class="btn-generate" onclick="createDraft('${r.id}')">
+            📝 AIで返信案を作成
+          </button>
+          <div id="draft-area-${r.id}" class="hidden">
+            <hr style="border:0; border-top:1px dashed #ccc; margin:10px 0;">
+            <textarea id="reply-${r.id}" style="width:95%; border:none; background:transparent;">(作成中...)</textarea>
+          </div>
+        </div>
+        <div style="margin-top:8px; font-size:0.8rem; text-decoration:underline; cursor:pointer;" onclick="toggleOrig('${r.id}')">✉️ 原文を確認</div>
+        <div id="orig-${r.id}" class="original-text">${escapeHtml(r.body)}</div>
+        <div id="actions-${r.id}" class="actions hidden">
+          <button class="btn-send" onclick="send('${r.id}', '${escapeHtml(r.from)}', '${escapeHtml(r.subject)}')">🚀 送信</button>
+          <button class="btn-edit" onclick="openEditor('${r.id}')">✏️ 修正</button>
+        </div>
+      `;
+      c.appendChild(div);
+    });
+  }
+
+  function createDraft(id) {
+    const btn = document.getElementById('btn-gen-' + id);
+    const area = document.getElementById('draft-area-' + id);
+    const actions = document.getElementById('actions-' + id);
+    btn.disabled = true;
+    btn.innerHTML = "⏳ AIが執筆中...";
+    
+    window.TRC.runGas('generateDraftForId', id)
+      .then(draft => {
+          btn.style.display = 'none';
+          area.classList.remove('hidden');
+          actions.classList.remove('hidden');
+          document.getElementById('reply-' + id).value = draft;
+      })
+      .catch(e => {
+          btn.disabled = false;
+          btn.innerHTML = "❌ エラー (再試行)";
+          alert(e.message);
+      });
+  }
+
+  function send(id, to, subj) {
+    if (!confirm("この内容で返信しますか？")) return;
+    const body = document.getElementById('reply-'+id).value;
+    document.getElementById('card-'+id).style.opacity = '0.5';
+    
+    window.TRC.runGas('sendEmail', id, to, subj, body)
+      .then(() => document.getElementById('card-'+id).remove())
+      .catch(e => {
+          document.getElementById('card-'+id).style.opacity = '1';
+          alert("送信エラー: " + e.message);
+      });
+  }
+
+  function loadHistory() {
+    const hc = document.getElementById('history-container');
+    window.TRC.runGas('getSentHistory')
+      .then(rows => {
+        if(!rows.length) return hc.innerHTML = "<p>履歴はありません</p>";
+        hc.innerHTML = rows.map(r => `
+          <div class="history-item">
+            <div class="history-meta"><span>${r.date}</span><span>${r.status}</span></div>
+            <div style="font-weight:bold">${escapeHtml(r.to)}</div>
+            <div>${escapeHtml(r.subject)}</div>
+            <div style="color:#6b7280; font-size:0.8rem;">${escapeHtml(r.bodySnippet)}</div>
+          </div>
+        `).join('');
+      })
+      .catch(e => hc.innerHTML = "<p>読み込みエラー</p>");
+  }
+
+  function toggleOrig(id) { const el = document.getElementById('orig-'+id); el.style.display = el.style.display==='none'?'block':'none'; }
+  function escapeHtml(str) { if(!str)return''; return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])); }
+</script>
+
+</body>
+</html>
