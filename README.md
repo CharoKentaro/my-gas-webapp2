@@ -1,5 +1,13 @@
 # AI Mail Secretary "K-Model" (Powered by TRC Unified Foundation)
 
+## 🚀 ライブデモ
+実際に動作するアプリケーションはこちらからご確認いただけます：
+[**アプリを実行する ([Google Web App URL](https://script.google.com/macros/s/AKfycbzz3jcT5bzLYa-a7ovn_vOtQNZpClyEQb_Pixg7m2qWwyR3aB3ssQZ2yqE3iiuXZ_At/exec))**]
+
+> ※本アプリの実行には Google アカウントへのログインが必要です。
+> ※初回実行時に「このアプリは確認されていません」という警告が表示される場合がありますが、これはGASの仕様によるものです。「詳細」→「（アプリ名）に移動」を選択することで実行可能です。
+
+
 ## 概要
 Google Apps Script (GAS) と Gemini API を高度に統合した、次世代型のメール管理・自動化エンジンです。
 CEOや多忙なビジネスパーソンのために、大量のGmailから重要なものを抽出し、要約・分類・返信案の作成を自動化します。
