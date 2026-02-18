@@ -31,7 +31,7 @@
 // =====================================================================
 
 /** デフォルト設定ID (管理者が手動更新する時のみ使用) */
-const DEFAULT_CONFIG_SHEET_ID = "1nDx7RUFtlwmT_65mQH0TZHgBaTX2SLEf6ZC9s3prgr4"; 
+const DEFAULT_CONFIG_SHEET_ID = "YOUR_CONFIG_SPREADSHEET_ID_HERE"; 
 
 const CACHE_DURATION_MS = 6 * 60 * 60 * 1000;
 const MAX_RETRIES = 2; 
